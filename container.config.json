@@ -22,10 +22,9 @@
 	],
 	"envParams": {},                                
 	"customLogs": "stdout",                         
-	"dataBaseName":"springboot_demo",               
+	"dataBaseName":"study_room",
 	"executeSQLs":[
-		"CREATE DATABASE IF NOT EXISTS springboot_demo;",
-		"USE springboot_demo;",
-		"CREATE TABLE IF NOT EXISTS `Counters` (`id` int(11) NOT NULL AUTO_INCREMENT, `count` int(11) NOT NULL DEFAULT 1, `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`id`)) ENGINE = InnoDB DEFAULT CHARSET = utf8;"
-	]                                               
+		"CREATE DATABASE IF NOT EXISTS study_room DEFAULT CHARSET utf8mb4;"
+	]
+	// 完整表结构请用 sql/00-study_room_init.sql 在云托管 MySQL 控制台导入（executeSQLs 只建库不建全表）                                               
 }

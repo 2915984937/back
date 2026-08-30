@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.dao.UserMapper">
+
+  <sql id="cols">
+    id, openid, unionid, phone, nickname, avatar,
+    is_student   AS isStudent,
+    status,
+    blacklist_until AS blacklistUntil,
+    create_time  AS createTime,
+    update_time  AS updateTime
+  </sql>
+
+  <select id="selectByOpenid" resultType="com.tencent.wxcloudrun.model.User">
+    SELECT <include refid="cols"/>
+    FROM sys_user
+    WHERE openid = #{openid}
+  </select>
+
+  <insert id="insert" parameterType="com.tencent.wxcloudrun.model.User" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO sys_user(openid, nickname, avatar, is_student, status)
+    VALUES (#{openid}, #{nickname}, #{avatar}, 0, 0)
+  </insert>
+
+  <update id="updateProfile" parameterType="com.tencent.wxcloudrun.model.User">
+    UPDATE sys_user
+    SET nickname = #{nickname}, avatar = #{avatar}
+    WHERE id = #{id}
+  </update>
+
+</mapper>
