@@ -13,7 +13,8 @@ COPY settings.xml pom.xml /app/
 
 # 执行代码编译命令
 # 自定义settings.xml, 选用国内镜像源以提高下载速度
-RUN mvn -s /app/settings.xml -f /app/pom.xml clean package
+# -DskipTests: 部署构建环境无 MySQL，@SpringBootTest 无法加载上下文，故跳过测试（测试留本地有库时执行）
+RUN mvn -s /app/settings.xml -f /app/pom.xml clean package -DskipTests
 
 # 选择运行时基础镜像
 FROM alpine:3.13
