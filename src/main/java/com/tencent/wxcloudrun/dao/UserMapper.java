@@ -9,6 +9,8 @@ public interface UserMapper {
 
   User selectByOpenid(@Param("openid") String openid);
 
+  User selectById(@Param("id") Long id);
+
   int insert(User user);
 
   int updateProfile(User user);

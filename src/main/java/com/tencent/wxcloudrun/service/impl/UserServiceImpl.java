@@ -41,18 +41,63 @@ public class UserServiceImpl implements UserService {
     if (user == null) {
       user = new User();
       user.setOpenid(openid);
-      user.setNickname(request.getNickname());
+      // 昵称：传了就用，否则给默认值（openid 后 8 位便于区分）
+      if (StringUtils.hasText(request.getNickname())) {
+        user.setNickname(request.getNickname());
+      } else {
+        user.setNickname("微信用户_" + openid.substring(Math.max(0, openid.length() - 8)));
+      }
       user.setAvatar(request.getAvatar());
+      // phoneCode 换手机号
+      if (StringUtils.hasText(request.getPhoneCode())) {
+        user.setPhone(wxApiClient.getPhoneNumber(request.getPhoneCode()));
+      }
       userMapper.insert(user); // useGeneratedKeys 回填 id
       isNewUser = true;
-    } else if (StringUtils.hasText(request.getNickname()) || StringUtils.hasText(request.getAvatar())) {
-      if (StringUtils.hasText(request.getNickname())) user.setNickname(request.getNickname());
-      if (StringUtils.hasText(request.getAvatar())) user.setAvatar(request.getAvatar());
-      userMapper.updateProfile(user);
+    } else {
+      boolean needUpdate = false;
+      if (StringUtils.hasText(request.getNickname())) {
+        user.setNickname(request.getNickname());
+        needUpdate = true;
+      }
+      if (StringUtils.hasText(request.getAvatar())) {
+        user.setAvatar(request.getAvatar());
+        needUpdate = true;
+      }
+      // 手机号：如果传了 phoneCode 且用户还没绑定手机号，则绑定
+      if (StringUtils.hasText(request.getPhoneCode())
+          && !StringUtils.hasText(user.getPhone())) {
+        user.setPhone(wxApiClient.getPhoneNumber(request.getPhoneCode()));
+        needUpdate = true;
+      }
+      if (needUpdate) {
+        userMapper.updateProfile(user);
+      }
     }
 
     // 3. 签发 token
     String token = jwtUtil.generate(user.getId(), openid);
     return new LoginResult(token, user, isNewUser);
+  }
+
+  @Override
+  public User updateProfile(Long userId, String nickname, String avatar) {
+    User user = userMapper.selectById(userId);
+    if (user == null) {
+      throw new BizException(1004, "用户不存在");
+    }
+    boolean needUpdate = false;
+    if (StringUtils.hasText(nickname)) {
+      user.setNickname(nickname.trim());
+      needUpdate = true;
+    }
+    if (StringUtils.hasText(avatar)) {
+      user.setAvatar(avatar.trim());
+      needUpdate = true;
+    }
+    if (needUpdate) {
+      userMapper.updateProfile(user);
+    }
+    return user;
   }
 }

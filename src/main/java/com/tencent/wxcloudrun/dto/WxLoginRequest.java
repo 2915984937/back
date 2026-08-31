@@ -11,6 +11,8 @@ public class WxLoginRequest {
   private String nickname;
   /** 可选：头像 URL */
   private String avatar;
+  /** 可选：getPhoneNumber 返回的 code，后端用它换手机号 */
+  private String phoneCode;
 
   public String getCode() { return code; }
   public void setCode(String code) { this.code = code; }
@@ -18,4 +20,6 @@ public class WxLoginRequest {
   public void setNickname(String nickname) { this.nickname = nickname; }
   public String getAvatar() { return avatar; }
   public void setAvatar(String avatar) { this.avatar = avatar; }
+  public String getPhoneCode() { return phoneCode; }
+  public void setPhoneCode(String phoneCode) { this.phoneCode = phoneCode; }
 }

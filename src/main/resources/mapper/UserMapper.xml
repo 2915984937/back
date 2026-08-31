@@ -17,6 +17,12 @@
     WHERE openid = #{openid}
   </select>
 
+  <select id="selectById" resultType="com.tencent.wxcloudrun.model.User">
+    SELECT <include refid="cols"/>
+    FROM sys_user
+    WHERE id = #{id}
+  </select>
+
   <insert id="insert" parameterType="com.tencent.wxcloudrun.model.User" useGeneratedKeys="true" keyProperty="id">
     INSERT INTO sys_user(openid, nickname, avatar, is_student, status)
     VALUES (#{openid}, #{nickname}, #{avatar}, 0, 0)
