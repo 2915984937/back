@@ -8,6 +8,9 @@ spring:
     url: jdbc:mysql://${MYSQL_ADDRESS}/${MYSQL_DATABASE:springboot_demo}?useUnicode=true&characterEncoding=utf8&useSSL=false
     username: ${MYSQL_USERNAME}
     password: ${MYSQL_PASSWORD}
+    # 云托管部署加固：数据库短暂不可达时不直接打挂应用，让探针通过、错误可诊断
+    hikari:
+      initialization-fail-timeout: -1
   mvc:
     view:
       suffix: .html
