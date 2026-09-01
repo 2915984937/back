@@ -24,3 +24,8 @@ app:
   jwt:
     secret: ${JWT_SECRET:study-room-dev-secret-change-me-please}
     expire-hours: ${JWT_EXPIRE_HOURS:168}   # token 有效期，默认 7 天
+
+# 日志
+logging:
+  pattern:
+    console: '%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n'
