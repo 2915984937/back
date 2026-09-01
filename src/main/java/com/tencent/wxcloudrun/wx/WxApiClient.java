@@ -1,6 +1,7 @@
 package com.tencent.wxcloudrun.wx;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tencent.wxcloudrun.common.exception.BizException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +15,7 @@ import java.util.Map;
 
 /**
  * 微信开放能力客户端：用 code 换取 openid / 手机号。
- * appid/secret 来自环境变量 WX_APPID / WX_SECRET（微信云托管环境变量）。
+ * appid/secret 来自环境变量 WX_APPID / WX_SECRET。
  */
 @Component
 public class WxApiClient {
@@ -25,22 +26,27 @@ public class WxApiClient {
   private static final String ACCESS_TOKEN_URL = "https://api.weixin.qq.com/cgi-bin/token";
   private static final String PHONE_NUMBER_URL = "https://api.weixin.qq.com/wxa/business/getuserphonenumber";
 
-  private final RestTemplate restTemplate = new RestTemplate();
+  private final RestTemplate restTemplate;
+  private final ObjectMapper objectMapper = new ObjectMapper();
+
+  public WxApiClient() {
+    this.restTemplate = new RestTemplate();
+  }
+
+  WxApiClient(RestTemplate restTemplate) {
+    this.restTemplate = restTemplate;
+  }
 
   @Value("${app.wx.appid:}")
-  private String appid;
+  String appid;
 
   @Value("${app.wx.secret:}")
-  private String secret;
+  String secret;
 
   private volatile String cachedAccessToken;
   private volatile long tokenExpireAt;
 
-  /**
-   * jscode2session：用前端 wx.login() 拿到的 code 换取 openid。
-   * @param code 前端临时登录凭证 code
-   * @return 用户 openid
-   */
+  /** 用前端 wx.login() 的 code 换 openid */
   public String code2Session(String code) {
     ensureConfig();
     if (!StringUtils.hasText(code)) {
@@ -52,10 +58,7 @@ public class WxApiClient {
         + "&js_code=" + code
         + "&grant_type=authorization_code";
 
-    JsonNode node = restTemplate.getForObject(url, JsonNode.class);
-    if (node == null) {
-      throw new BizException(1001, "微信登录响应为空");
-    }
+    JsonNode node = getJson(url);
     if (node.has("errcode") && node.get("errcode").asInt() != 0) {
       log.warn("wx code2session返回错误: {}", node);
       throw new BizException(1001, "微信登录失败：" + node.path("errmsg").asText(""));
@@ -67,11 +70,7 @@ public class WxApiClient {
     return openid;
   }
 
-  /**
-   * 用 getPhoneNumber 返回的 code 换取手机号。
-   * @param phoneCode 前端通过 open-type="getPhoneNumber" 拿到的 code
-   * @return 用户手机号（纯数字，非脱敏）
-   */
+  /** 用 getPhoneNumber 的 code 换手机号 */
   public String getPhoneNumber(String phoneCode) {
     ensureConfig();
     if (!StringUtils.hasText(phoneCode)) {
@@ -84,10 +83,8 @@ public class WxApiClient {
     Map<String, String> body = new HashMap<>();
     body.put("code", phoneCode);
 
-    JsonNode node = restTemplate.postForObject(url, body, JsonNode.class);
-    if (node == null) {
-      throw new BizException(1001, "微信手机号接口响应为空");
-    }
+    String raw = restTemplate.postForObject(url, body, String.class);
+    JsonNode node = parseJson(raw);
     if (node.has("errcode") && node.get("errcode").asInt() != 0) {
       log.warn("wx getPhoneNumber返回错误: {}", node);
       throw new BizException(1001, "获取手机号失败：" + node.path("errmsg").asText(""));
@@ -98,6 +95,24 @@ public class WxApiClient {
       throw new BizException(1001, "微信未返回手机号");
     }
     return pure;
+  }
+
+  /** GET: 拿 String 再手动 parse —— 不依赖 Content-Type */
+  private JsonNode getJson(String url) {
+    String raw = restTemplate.getForObject(url, String.class);
+    return parseJson(raw);
+  }
+
+  private JsonNode parseJson(String raw) {
+    if (raw == null) {
+      throw new BizException(1001, "微信接口响应为空");
+    }
+    try {
+      return objectMapper.readTree(raw);
+    } catch (Exception e) {
+      log.error("解析微信 JSON 失败: {}", raw, e);
+      throw new BizException(1001, "微信接口响应格式异常");
+    }
   }
 
   private void ensureConfig() {
@@ -119,10 +134,10 @@ public class WxApiClient {
       String url = ACCESS_TOKEN_URL + "?grant_type=client_credential"
           + "&appid=" + appid
           + "&secret=" + secret;
-      JsonNode node = restTemplate.getForObject(url, JsonNode.class);
-      if (node == null || node.has("errcode")) {
+      JsonNode node = getJson(url);
+      if (node.has("errcode") && node.get("errcode").asInt() != 0) {
         log.warn("wx access_token 返回错误: {}", node);
-        throw new BizException(1001, "获取微信 access_token 失败");
+        throw new BizException(1001, "获取微信 access_token 失败：" + node.path("errmsg").asText(""));
       }
       cachedAccessToken = node.path("access_token").asText(null);
       int expiresIn = node.path("expires_in").asInt(7200);
