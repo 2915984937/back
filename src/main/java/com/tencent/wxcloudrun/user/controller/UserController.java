@@ -1,7 +1,7 @@
 package com.tencent.wxcloudrun.user.controller;
 
+import com.tencent.wxcloudrun.common.auth.AuthInterceptor;
 import com.tencent.wxcloudrun.common.exception.BizException;
-import com.tencent.wxcloudrun.common.util.JwtUtil;
 import com.tencent.wxcloudrun.common.util.Result;
 import com.tencent.wxcloudrun.user.dto.LoginResult;
 import com.tencent.wxcloudrun.user.dto.UpdateProfileRequest;
@@ -12,17 +12,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
+
 @RestController
 @RequestMapping("/api/user")
 public class UserController {
 
   private final UserService userService;
-  private final JwtUtil jwtUtil;
 
-  public UserController(@Autowired UserService userService,
-                        @Autowired JwtUtil jwtUtil) {
+  public UserController(@Autowired UserService userService) {
     this.userService = userService;
-    this.jwtUtil = jwtUtil;
   }
 
   @PostMapping("/wx/login")
@@ -31,8 +30,8 @@ public class UserController {
   }
 
   @GetMapping("/me")
-  public Result<User> me(@RequestHeader("Authorization") String authHeader) {
-    Long userId = jwtUtil.parseUserId(authHeader);
+  public Result<User> me(HttpServletRequest request) {
+    Long userId = (Long) request.getAttribute(AuthInterceptor.ATTR_USER_ID);
     User user = userService.getCurrentUser(userId);
     if (user == null) {
       throw new BizException(BizException.CODE_USER_NOT_FOUND, "用户不存在");
@@ -41,16 +40,16 @@ public class UserController {
   }
 
   @PutMapping("/me")
-  public Result<User> updateMe(@RequestHeader("Authorization") String authHeader,
-                               @RequestBody UpdateProfileRequest req) {
-    Long userId = jwtUtil.parseUserId(authHeader);
+  public Result<User> updateMe(HttpServletRequest request,
+                               @Validated @RequestBody UpdateProfileRequest req) {
+    Long userId = (Long) request.getAttribute(AuthInterceptor.ATTR_USER_ID);
     User user = userService.updateProfile(userId, req.getNickname(), req.getAvatar());
     return Result.ok(user);
   }
 
   @DeleteMapping("/me")
-  public Result<String> deleteMe(@RequestHeader("Authorization") String authHeader) {
-    Long userId = jwtUtil.parseUserId(authHeader);
+  public Result<String> deleteMe(HttpServletRequest request) {
+    Long userId = (Long) request.getAttribute(AuthInterceptor.ATTR_USER_ID);
     userService.anonymize(userId);
     return Result.ok("ok");
   }

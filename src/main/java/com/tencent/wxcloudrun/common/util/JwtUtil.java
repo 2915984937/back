@@ -46,6 +46,10 @@ public class JwtUtil {
 
   /** 解析并返回 subject（userId）；token 非法或过期抛 JwtException。 */
   public Long parseUserId(String token) {
+    // 防御性：兼容 "Bearer xxx" 格式
+    if (token != null && token.startsWith("Bearer ")) {
+      token = token.substring(7).trim();
+    }
     Claims claims = Jwts.parserBuilder()
         .setSigningKey(key)
         .build()
