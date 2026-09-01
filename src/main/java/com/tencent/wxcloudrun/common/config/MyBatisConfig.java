@@ -9,6 +9,6 @@ import org.springframework.context.annotation.Configuration;
  * 而 @WebMvcTest 这类切片测试不会加载它，从而无需依赖数据库即可启动测试上下文。
  */
 @Configuration
-@MapperScan(basePackages = {"com.tencent.wxcloudrun.user.dao"})
+@MapperScan(basePackages = {"com.tencent.wxcloudrun.user.dao", "com.tencent.wxcloudrun.store.dao"})
 public class MyBatisConfig {
 }
