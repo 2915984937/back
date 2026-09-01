@@ -13,21 +13,26 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * Controller 只负责路由/参数透传/异常映射。
+ * AuthInterceptor 由 @WebMvcTest 自动加载（WebMvcConfig），
+ * 所以测试带 Authorization header 让拦截器走通，由 mock JwtUtil 提供 userId。
+ */
 @WebMvcTest(com.tencent.wxcloudrun.user.controller.UserController.class)
 class UserControllerTest {
 
+  private static final Long USER_ID = 42L;
   private static final String TOKEN = "Bearer valid.token.here";
-  private static final String RAW_TOKEN = "valid.token.here";
 
   @Autowired MockMvc mvc;
   @MockBean UserService userService;
@@ -35,10 +40,11 @@ class UserControllerTest {
 
   @BeforeEach
   void setUp() {
-    // JwtUtil.parseUserId 是 AuthInterceptor 用的，Controller 里也直接调
-    when(jwtUtil.parseUserId(TOKEN)).thenReturn(42L);
-    when(jwtUtil.parseUserId(RAW_TOKEN)).thenReturn(42L);
-    when(jwtUtil.parseUserId("Bearer " + RAW_TOKEN)).thenReturn(42L);
+    when(jwtUtil.parseUserId(anyString())).thenReturn(USER_ID);
+  }
+
+  private MockHttpServletRequestBuilder withAuth(MockHttpServletRequestBuilder req) {
+    return req.header("Authorization", TOKEN);
   }
 
   // ---- POST /api/user/wx/login ----
@@ -82,12 +88,9 @@ class UserControllerTest {
     User u = new User();
     u.setId(42L);
     u.setNickname("张三");
-    // Controller 调 jwtUtil.parseUserId(authHeader) 拿 userId
-    when(jwtUtil.parseUserId(TOKEN)).thenReturn(42L);
-    when(userService.getCurrentUser(42L)).thenReturn(u);
+    when(userService.getCurrentUser(USER_ID)).thenReturn(u);
 
-    mvc.perform(get("/api/user/me")
-            .header("Authorization", TOKEN))
+    mvc.perform(withAuth(get("/api/user/me")))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.code").value(0))
         .andExpect(jsonPath("$.data.id").value(42))
@@ -110,16 +113,26 @@ class UserControllerTest {
     User updated = new User();
     updated.setId(42L);
     updated.setNickname("新昵称");
-    when(jwtUtil.parseUserId(TOKEN)).thenReturn(42L);
-    when(userService.updateProfile(42L, "新昵称", null)).thenReturn(updated);
+    when(userService.updateProfile(USER_ID, "新昵称", null)).thenReturn(updated);
 
-    mvc.perform(put("/api/user/me")
-            .header("Authorization", TOKEN)
+    mvc.perform(withAuth(put("/api/user/me")
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"nickname\":\"新昵称\"}"))
+            .content("{\"nickname\":\"新昵称\"}")))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.code").value(0))
         .andExpect(jsonPath("$.data.id").value(42));
+  }
+
+  @Test
+  void updateMe_用户不存在_返回BizException() throws Exception {
+    when(userService.updateProfile(USER_ID, "x", null))
+        .thenThrow(new BizException(1004, "用户不存在"));
+
+    mvc.perform(withAuth(put("/api/user/me")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"nickname\":\"x\"}")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(1004));
   }
 
   // ---- DELETE /api/user/me ----
@@ -133,21 +146,17 @@ class UserControllerTest {
 
   @Test
   void deleteMe_正常匿名化注销() throws Exception {
-    when(jwtUtil.parseUserId(TOKEN)).thenReturn(42L);
-
-    mvc.perform(delete("/api/user/me")
-            .header("Authorization", TOKEN))
+    mvc.perform(withAuth(delete("/api/user/me")))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.code").value(0));
   }
 
   @Test
-  void deleteMe_用户不存在_404() throws Exception {
-    when(jwtUtil.parseUserId(TOKEN)).thenReturn(42L);
-    doThrow(new BizException(1004, "用户不存在")).when(userService).anonymize(42L);
+  void deleteMe_用户不存在_返回错误码() throws Exception {
+    doThrow(new BizException(1004, "用户不存在"))
+        .when(userService).anonymize(USER_ID);
 
-    mvc.perform(delete("/api/user/me")
-            .header("Authorization", TOKEN))
+    mvc.perform(withAuth(delete("/api/user/me")))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.code").value(1004));
   }
