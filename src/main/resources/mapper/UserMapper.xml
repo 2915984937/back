@@ -31,7 +31,7 @@
 
   <update id="updateProfile" parameterType="com.tencent.wxcloudrun.user.model.User">
     UPDATE sys_user
-    SET nickname = #{nickname}, avatar = #{avatar}
+    SET nickname = #{nickname}, avatar = #{avatar}, phone = #{phone}
     WHERE id = #{id} AND (deleted = 0 OR deleted IS NULL)
   </update>
 

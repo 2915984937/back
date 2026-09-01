@@ -195,7 +195,7 @@ class UserServiceTest {
 
       when(userMapper.selectById(42L)).thenReturn(existing);
 
-      User result = service.updateProfile(42L, "新昵称", "cloud://a.jpg");
+      User result = service.updateProfile(42L, "新昵称", "cloud://a.jpg", null);
 
       assertEquals("新昵称", result.getNickname());
       assertEquals("cloud://a.jpg", result.getAvatar());
@@ -211,7 +211,7 @@ class UserServiceTest {
 
       when(userMapper.selectById(42L)).thenReturn(existing);
 
-      service.updateProfile(42L, "昵称", null);
+      service.updateProfile(42L, "昵称", null, null);
 
       assertEquals("昵称", existing.getNickname());
       assertEquals("cloud://old.jpg", existing.getAvatar());
@@ -226,7 +226,7 @@ class UserServiceTest {
 
       when(userMapper.selectById(42L)).thenReturn(existing);
 
-      service.updateProfile(42L, "", null);
+      service.updateProfile(42L, "", null, null);
 
       verify(userMapper, never()).updateProfile(any());
     }
@@ -236,7 +236,7 @@ class UserServiceTest {
       when(userMapper.selectById(99L)).thenReturn(null);
 
       BizException ex = assertThrows(BizException.class,
-          () -> service.updateProfile(99L, "x", null));
+          () -> service.updateProfile(99L, "x", null, null));
       assertEquals(1004, ex.getCode());
     }
 
@@ -249,7 +249,7 @@ class UserServiceTest {
       when(userMapper.selectById(88L)).thenReturn(banned);
 
       BizException ex = assertThrows(BizException.class,
-          () -> service.updateProfile(88L, "新昵称", null));
+          () -> service.updateProfile(88L, "新昵称", null, null));
       assertEquals(1006, ex.getCode());
       assertTrue(ex.getMessage().contains("永久"));
     }
@@ -264,8 +264,70 @@ class UserServiceTest {
       when(userMapper.selectById(89L)).thenReturn(banned);
 
       BizException ex = assertThrows(BizException.class,
-          () -> service.updateProfile(89L, "新昵称", null));
+          () -> service.updateProfile(89L, "新昵称", null, null));
       assertEquals(1006, ex.getCode());
+    }
+
+    @Test
+    void 只传手机号_只更新手机号() {
+      User existing = new User();
+      existing.setId(42L);
+      existing.setPhone("13800000000");
+      existing.setStatus(0);
+
+      when(userMapper.selectById(42L)).thenReturn(existing);
+
+      User result = service.updateProfile(42L, null, null, "13912345678");
+
+      assertEquals("13912345678", result.getPhone());
+      assertNull(result.getNickname());
+      verify(userMapper).updateProfile(existing);
+    }
+
+    @Test
+    void 同时更新昵称头像和手机号() {
+      User existing = new User();
+      existing.setId(42L);
+      existing.setStatus(0);
+
+      when(userMapper.selectById(42L)).thenReturn(existing);
+
+      User result = service.updateProfile(42L, "新昵称", "cloud://a.jpg", "13912345678");
+
+      assertEquals("新昵称", result.getNickname());
+      assertEquals("cloud://a.jpg", result.getAvatar());
+      assertEquals("13912345678", result.getPhone());
+      verify(userMapper).updateProfile(existing);
+    }
+
+    @Test
+    void 手机号格式非法_抛BizException() {
+      User existing = new User();
+      existing.setId(42L);
+      existing.setStatus(0);
+
+      when(userMapper.selectById(42L)).thenReturn(existing);
+
+      BizException ex = assertThrows(BizException.class,
+          () -> service.updateProfile(42L, "新昵称", null, "123"));
+      assertEquals(400, ex.getCode());
+      assertTrue(ex.getMessage().contains("手机号格式"));
+      verify(userMapper, never()).updateProfile(any());
+    }
+
+    @Test
+    void 手机号空_不更新手机号() {
+      User existing = new User();
+      existing.setId(42L);
+      existing.setPhone("13800000000");
+      existing.setStatus(0);
+
+      when(userMapper.selectById(42L)).thenReturn(existing);
+
+      service.updateProfile(42L, "昵称", null, "");
+
+      assertEquals("13800000000", existing.getPhone());
+      verify(userMapper).updateProfile(existing);
     }
   }
 

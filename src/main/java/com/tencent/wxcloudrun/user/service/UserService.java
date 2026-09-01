@@ -112,9 +112,9 @@ public class UserService {
     return user;
   }
 
-  /** 更新昵称 / 头像 */
+  /** 更新昵称 / 头像 / 手机号 */
   @Transactional
-  public User updateProfile(Long userId, String nickname, String avatar) {
+  public User updateProfile(Long userId, String nickname, String avatar, String phone) {
     User user = userMapper.selectById(userId);
     if (user == null) {
       throw new BizException(BizException.CODE_USER_NOT_FOUND, "用户不存在");
@@ -132,6 +132,13 @@ public class UserService {
     }
     if (StringUtils.hasText(avatar)) {
       user.setAvatar(avatar.trim());
+      needUpdate = true;
+    }
+    if (StringUtils.hasText(phone)) {
+      if (!phone.matches("^1[3-9]\\d{9}$")) {
+        throw new BizException(400, "手机号格式不正确");
+      }
+      user.setPhone(phone.trim());
       needUpdate = true;
     }
     if (needUpdate) {

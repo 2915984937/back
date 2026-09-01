@@ -113,7 +113,7 @@ class UserControllerTest {
     User updated = new User();
     updated.setId(42L);
     updated.setNickname("新昵称");
-    when(userService.updateProfile(USER_ID, "新昵称", null)).thenReturn(updated);
+    when(userService.updateProfile(USER_ID, "新昵称", null, null)).thenReturn(updated);
 
     mvc.perform(withAuth(put("/api/user/me")
             .contentType(MediaType.APPLICATION_JSON)
@@ -125,7 +125,7 @@ class UserControllerTest {
 
   @Test
   void updateMe_用户不存在_返回BizException() throws Exception {
-    when(userService.updateProfile(USER_ID, "x", null))
+    when(userService.updateProfile(USER_ID, "x", null, null))
         .thenThrow(new BizException(1004, "用户不存在"));
 
     mvc.perform(withAuth(put("/api/user/me")
@@ -133,6 +133,33 @@ class UserControllerTest {
             .content("{\"nickname\":\"x\"}")))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.code").value(1004));
+  }
+
+  @Test
+  void updateMe_更新手机号() throws Exception {
+    User updated = new User();
+    updated.setId(42L);
+    updated.setPhone("13912345678");
+    when(userService.updateProfile(USER_ID, null, null, "13912345678")).thenReturn(updated);
+
+    mvc.perform(withAuth(put("/api/user/me")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"phone\":\"13912345678\"}")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(0))
+        .andExpect(jsonPath("$.data.id").value(42));
+  }
+
+  @Test
+  void updateMe_手机号格式非法_返回400() throws Exception {
+    when(userService.updateProfile(USER_ID, null, null, "123"))
+        .thenThrow(new BizException(400, "手机号格式不正确"));
+
+    mvc.perform(withAuth(put("/api/user/me")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"phone\":\"123\"}")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(400));
   }
 
   // ---- DELETE /api/user/me ----

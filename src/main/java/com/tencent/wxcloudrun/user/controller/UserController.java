@@ -43,7 +43,7 @@ public class UserController {
   public Result<User> updateMe(HttpServletRequest request,
                                @Validated @RequestBody UpdateProfileRequest req) {
     Long userId = (Long) request.getAttribute(AuthInterceptor.ATTR_USER_ID);
-    User user = userService.updateProfile(userId, req.getNickname(), req.getAvatar());
+    User user = userService.updateProfile(userId, req.getNickname(), req.getAvatar(), req.getPhone());
     return Result.ok(user);
   }
 
