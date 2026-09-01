@@ -1,7 +1,5 @@
-CREATE TABLE `Counters` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `count` int(11) NOT NULL DEFAULT '1',
-  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8
+-- =====================================================
+-- ⚠️ 已废弃：微信云托管脚手架默认初始化脚本
+-- 自习室项目的数据库结构请使用同目录下的 schema.sql
+-- =====================================================
+DROP TABLE IF EXISTS `Counters`;
