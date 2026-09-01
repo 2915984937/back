@@ -13,7 +13,6 @@ public class Seat {
   private String seatName;     // 座位显示名，如 A01
   private Integer posX;          // 平面图 X 坐标（像素）
   private Integer posY;          // 平面图 Y 坐标（像素）
-  private Integer seatType;      // 1-单人 2-双人 3-VIP
   private BigDecimal priceHour;  // 元/小时
   private Integer status;        // 0-可用 1-维护 2-停用
   private String deviceId;       // 关联 IoT 设备 ID
@@ -34,9 +33,6 @@ public class Seat {
 
   public Integer getPosY() { return posY; }
   public void setPosY(Integer posY) { this.posY = posY; }
-
-  public Integer getSeatType() { return seatType; }
-  public void setSeatType(Integer seatType) { this.seatType = seatType; }
 
   public BigDecimal getPriceHour() { return priceHour; }
   public void setPriceHour(BigDecimal priceHour) { this.priceHour = priceHour; }

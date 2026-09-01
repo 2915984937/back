@@ -1,26 +1,35 @@
 package com.tencent.wxcloudrun.store.dto;
 
+import javax.validation.constraints.DecimalMin;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 /**
- * 座位返回 VO（C 端）。
+ * 座位创建/更新请求（管理后台）。
  */
-public class SeatVO {
+public class SeatCreateRequest {
 
-  private Long id;
+  @NotNull(message = "门店ID不能为空")
   private Long storeId;
-  private String seatName;
-  private Integer posX;
-  private Integer posY;
-  private BigDecimal priceHour;
-  private Integer status;           // 0-可用 1-维护 2-停用
-  private String deviceId;
-  private LocalDateTime createTime;
-  private LocalDateTime updateTime;
 
-  public Long getId() { return id; }
-  public void setId(Long id) { this.id = id; }
+  @NotBlank(message = "座位名称不能为空")
+  private String seatName;
+
+  @NotNull(message = "X 坐标不能为空")
+  private Integer posX;
+
+  @NotNull(message = "Y 坐标不能为空")
+  private Integer posY;
+
+  @NotNull(message = "小时价格不能为空")
+  @DecimalMin(value = "0.00", message = "小时价格不能小于 0")
+  private BigDecimal priceHour;
+
+  @NotNull(message = "状态不能为空")
+  private Integer status;      // 0-可用 1-维护 2-停用
+
+  private String deviceId;
 
   public Long getStoreId() { return storeId; }
   public void setStoreId(Long storeId) { this.storeId = storeId; }
@@ -42,10 +51,4 @@ public class SeatVO {
 
   public String getDeviceId() { return deviceId; }
   public void setDeviceId(String deviceId) { this.deviceId = deviceId; }
-
-  public LocalDateTime getCreateTime() { return createTime; }
-  public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
-
-  public LocalDateTime getUpdateTime() { return updateTime; }
-  public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
 }
