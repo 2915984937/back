@@ -47,11 +47,9 @@ public class UserService {
       // 新用户（或已注销账号 openid 已清空 → 视同新用户，可重新注册）
       user = new User();
       user.setOpenid(openid);
-      if (StringUtils.hasText(request.getNickname())) {
-        user.setNickname(request.getNickname());
-      } else {
-        user.setNickname("微信用户_" + openid.substring(Math.max(0, openid.length() - 8)));
-      }
+      user.setNickname(StringUtils.hasText(request.getNickname())
+          ? request.getNickname()
+          : "微信用户");
       user.setAvatar(request.getAvatar());
       if (StringUtils.hasText(request.getPhoneCode())) {
         user.setPhone(wxApiClient.getPhoneNumber(request.getPhoneCode()));
