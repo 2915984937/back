@@ -53,7 +53,6 @@ public class MqttConfig {
                     new String(message.getPayload()));
             }
             @Override public void deliveryComplete(IMqttDeliveryToken token) {
-                // 发布完成回调（QoS 1/2 有意义，QoS 0 为空）
             }
         });
 
@@ -65,12 +64,21 @@ public class MqttConfig {
         return new MqttPublisher(client, props);
     }
 
+    /** null-safe helper：null 或 "" 都返回 true。 */
+    private static boolean blank(String s) {
+        return s == null || s.isEmpty();
+    }
+
     @PostConstruct
     public void connect() {
         try {
             MqttConnectOptions opts = new MqttConnectOptions();
-            opts.setUserName(props.getUsername());
-            opts.setPassword(props.getPassword().isEmpty() ? null : props.getPassword().toCharArray());
+            String username = props.getUsername();
+            String password = props.getPassword();
+
+            if (!blank(username)) opts.setUserName(username);
+            if (!blank(password))  opts.setPassword(password.toCharArray());
+
             opts.setCleanSession(props.isCleanSession());
             opts.setAutomaticReconnect(props.isAutomaticReconnect());
             opts.setConnectionTimeout(props.getConnectTimeout());
@@ -79,7 +87,7 @@ public class MqttConfig {
 
             log.info("[MQTT] 开始连接 broker={} clientId={} auth={}",
                 props.getBrokerUrl(), props.getClientId(),
-                props.getUsername().isEmpty() ? "无" : "有(" + props.getUsername() + ")");
+                blank(username) ? "无" : "有(" + username + ")");
             client.connect(opts);
         } catch (MqttException e) {
             log.error("[MQTT] 连接失败 reasonCode={} msg={}", e.getReasonCode(), e.getMessage(), e);
