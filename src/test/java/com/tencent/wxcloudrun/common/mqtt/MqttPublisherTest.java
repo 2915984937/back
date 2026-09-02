@@ -1,6 +1,5 @@
 package com.tencent.wxcloudrun.common.mqtt;
 
-import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
@@ -18,7 +17,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 /**
- * 用 doReturn...when / doThrow...when 避免 MqttClient.publish 多重载导致编译器类型推断失败。
+ * 注意：Paho 1.2.5 的 publish(String, MqttMessage) 返回 void，
+ * 必须用 doNothing / doThrow stub，不能用 doReturn。
  */
 @ExtendWith(MockitoExtension.class)
 class MqttPublisherTest {
@@ -40,8 +40,7 @@ class MqttPublisherTest {
     @DisplayName("连接正常时 publish 调 mqttClient，topic 自动加前缀，payload 正确")
     void publish_success() throws Exception {
         when(mqttClient.isConnected()).thenReturn(true);
-        IMqttDeliveryToken token = mock(IMqttDeliveryToken.class);
-        doReturn(token).when(mqttClient).publish(anyString(), any(MqttMessage.class));
+        doNothing().when(mqttClient).publish(anyString(), any(MqttMessage.class));
 
         boolean ok = publisher.publish("device/dev-001/cmd", "{\"on\":true}");
 
@@ -58,8 +57,7 @@ class MqttPublisherTest {
     @DisplayName("指定 QoS 时正确传入")
     void publish_withQos() throws Exception {
         when(mqttClient.isConnected()).thenReturn(true);
-        IMqttDeliveryToken token = mock(IMqttDeliveryToken.class);
-        doReturn(token).when(mqttClient).publish(anyString(), any(MqttMessage.class));
+        doNothing().when(mqttClient).publish(anyString(), any(MqttMessage.class));
 
         publisher.publish("test", "hi", 1);
 
@@ -72,8 +70,7 @@ class MqttPublisherTest {
     @DisplayName("非法 QoS 降级为 0")
     void publish_invalidQos() throws Exception {
         when(mqttClient.isConnected()).thenReturn(true);
-        IMqttDeliveryToken token = mock(IMqttDeliveryToken.class);
-        doReturn(token).when(mqttClient).publish(anyString(), any(MqttMessage.class));
+        doNothing().when(mqttClient).publish(anyString(), any(MqttMessage.class));
 
         publisher.publish("t", "p", 99);
 
@@ -83,7 +80,7 @@ class MqttPublisherTest {
     }
 
     @Test
-    @DisplayName("客户端未连接 → 不调 publish，返回 false")
+    @DisplayName("客户端未连接 -> 不调 publish，返回 false")
     void publish_notConnected() throws Exception {
         when(mqttClient.isConnected()).thenReturn(false);
 
@@ -94,7 +91,7 @@ class MqttPublisherTest {
     }
 
     @Test
-    @DisplayName("mqttClient.publish 抛 MqttException → 返回 false")
+    @DisplayName("mqttClient.publish 抛 MqttException -> 返回 false")
     void publish_mqttException() throws Exception {
         when(mqttClient.isConnected()).thenReturn(true);
         doThrow(new MqttException(MqttException.REASON_CODE_SERVER_CONNECT_ERROR))
@@ -117,8 +114,7 @@ class MqttPublisherTest {
     @DisplayName("空 payload 正常发布（UTF-8 编码）")
     void publish_emptyPayload() throws Exception {
         when(mqttClient.isConnected()).thenReturn(true);
-        IMqttDeliveryToken token = mock(IMqttDeliveryToken.class);
-        doReturn(token).when(mqttClient).publish(anyString(), any(MqttMessage.class));
+        doNothing().when(mqttClient).publish(anyString(), any(MqttMessage.class));
 
         boolean ok = publisher.publish("t", "");
 
