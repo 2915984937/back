@@ -42,7 +42,7 @@ public class MqttPublisher {
             qos = 0;
         }
         try {
-            if (!mqttClient.isConnected()) {
+            if (mqttClient == null || !mqttClient.isConnected()) {
                 log.warn("[MQTT] 客户端未连接，跳过发布 topic={}", topic);
                 return false;
             }

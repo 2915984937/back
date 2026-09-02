@@ -12,14 +12,15 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.event.EventListener;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * MQTT 配置类：创建 MqttClient、自动连接、打印连接事件日志。
- * 用 app.mqtt.enabled=true（默认）开启；本地调试不想连 broker 设 false 即可，所有 Bean 不创建。
+ * MQTT 配置类：按 EMQX 官方示例极简实现。
+ * 连接放到独立线程异步执行，避免在 Spring Boot 启动阶段同步 connect() 可能的 NPE。
  */
 @Configuration
 @ConditionalOnProperty(name = "app.mqtt.enabled", havingValue = "true", matchIfMissing = true)
@@ -29,93 +30,90 @@ public class MqttConfig {
     private static final Logger log = LoggerFactory.getLogger(MqttConfig.class);
 
     private final MqttProperties props;
-    private MqttClient client;
+    private volatile MqttClient client;
+    private final AtomicBoolean connecting = new AtomicBoolean(false);
 
     public MqttConfig(MqttProperties props) {
         this.props = props;
     }
 
     @Bean
-    public MqttClient mqttClient() throws MqttException {
-        String brokerUrl = props.getBrokerUrl();
-        String clientId  = props.getClientId();
+    public MqttClient mqttClient() {
+        String broker = props.getBrokerUrl();
+        String clientId = props.getClientId();
 
-        if (blank(brokerUrl)) {
-            throw new IllegalStateException("[MQTT] broker-url 未配置");
+        if (blank(broker)) {
+            log.warn("[MQTT] broker-url 为空，MQTT 功能不可用");
+            return null;
         }
         if (blank(clientId)) {
-            clientId = "study-room-" + UUID.randomUUID().toString().replace("-", "");
+            clientId = MqttClient.generateClientId();
+            log.info("[MQTT] client-id 未配置，Paho 自动生成 {}", clientId);
         }
 
-        MemoryPersistence persistence = new MemoryPersistence();
-        this.client = new MqttClient(brokerUrl, clientId, persistence);
+        // 打印所有配置，方便在云托管日志里排查
+        log.info("[MQTT] 配置快照 broker={} clientId={} username={} topicPrefix={}",
+            broker, clientId, props.getUsername(), props.getTopicPrefix());
 
-        client.setCallback(new MqttCallbackExtended() {
-            @Override public void connectComplete(boolean reconnect, String serverURI) {
-                log.info("[MQTT] {} broker={} clientId={}",
-                    reconnect ? "重连成功" : "首次连接成功", serverURI, clientId);
-            }
-            @Override public void connectionLost(Throwable cause) {
-                log.warn("[MQTT] 连接断开 clientId={} cause={}", clientId,
-                    cause != null ? cause.getMessage() : "unknown");
-            }
-            @Override public void messageArrived(String topic, org.eclipse.paho.client.mqttv3.MqttMessage message) {
-                log.info("[MQTT] 收到消息 topic={} qos={} payload={}", topic, message.getQos(),
-                    new String(message.getPayload()));
-            }
-            @Override public void deliveryComplete(IMqttDeliveryToken token) {
-            }
-        });
+        try {
+            this.client = new MqttClient(broker, clientId, new MemoryPersistence());
 
+            client.setCallback(new MqttCallbackExtended() {
+                @Override public void connectComplete(boolean reconnect, String serverURI) {
+                    log.info("[MQTT] ✅ {} broker={}", reconnect ? "重连成功" : "连接成功", serverURI);
+                }
+                @Override public void connectionLost(Throwable cause) {
+                    log.warn("[MQTT] ⚠️ 连接断开 cause={}", cause != null ? cause.getMessage() : "unknown");
+                }
+                @Override public void messageArrived(String topic, org.eclipse.paho.client.mqttv3.MqttMessage message) {
+                    log.info("[MQTT] 📨 收到 topic={} qos={} payload={}", topic, message.getQos(),
+                        new String(message.getPayload()));
+                }
+                @Override public void deliveryComplete(IMqttDeliveryToken token) {
+                }
+            });
+        } catch (MqttException e) {
+            log.error("[MQTT] 创建 MqttClient 失败 reasonCode={} msg={}", e.getReasonCode(), e.getMessage());
+        }
         return client;
     }
 
     @Bean
-    public MqttPublisher mqttPublisher(MqttClient client) {
-        return new MqttPublisher(client, props);
+    public MqttPublisher mqttPublisher(org.springframework.beans.factory.ObjectProvider<MqttClient> clientProvider) {
+        return new MqttPublisher(clientProvider.getIfAvailable(), props);
     }
 
-    /** null-safe helper：null 或 "" 都返回 true。 */
-    private static boolean blank(String s) {
-        return s == null || s.isEmpty();
+    /** Spring Boot 启动完成后异步触发连接，不阻塞主线程。 */
+    @EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    public void onReady() {
+        if (client == null) return;
+        if (!connecting.compareAndSet(false, true)) return;
+
+        String broker = props.getBrokerUrl();
+        String username = props.getUsername();
+        new Thread(() -> connect(broker, username), "mqtt-connect").start();
     }
 
-    @PostConstruct
-    public void connect() {
+    private void connect(String broker, String username) {
         try {
-            if (client == null) {
-                log.warn("[MQTT] MqttClient 未创建，跳过连接");
-                return;
-            }
-
+            // 完全按照 EMQX 官方示例，只设最基本的选项
             MqttConnectOptions opts = new MqttConnectOptions();
-            String username = props.getUsername();
-            String password = props.getPassword();
-
             if (!blank(username)) opts.setUserName(username);
-            if (!blank(password))  opts.setPassword(password.toCharArray());
-
+            if (!blank(props.getPassword())) opts.setPassword(props.getPassword().toCharArray());
             opts.setCleanSession(props.isCleanSession());
             opts.setAutomaticReconnect(props.isAutomaticReconnect());
-            opts.setConnectionTimeout(props.getConnectTimeout());
-            opts.setKeepAliveInterval(props.getKeepAlive());
 
-            // 重要：不要手动 setSocketFactory！
-            // Paho 对 ssl:// 协议内部有自己的 TLS 处理逻辑（SSLv3 兼容模式），
-            // 手动注入 SSLSocketFactory.getDefault() 在 Java 8 容器镜像中会触发
-            // "Unconnected sockets not implemented" 或 NPE（Paho 1.2.5 已知问题）。
-            // 删掉这一行即可让 Paho 自己正确处理 TLS。
-
-            log.info("[MQTT] 开始连接 broker={} clientId={} auth={}",
-                props.getBrokerUrl(), props.getClientId(),
-                blank(username) ? "无" : "有(" + username + ")");
+            log.info("[MQTT] 🔌 开始连接 broker={} clientId={} auth={}",
+                broker, props.getClientId(), blank(username) ? "无" : "有(" + username + ")");
 
             client.connect(opts);
         } catch (MqttException e) {
-            log.error("[MQTT] 连接失败 reasonCode={} msg={}", e.getReasonCode(), e.getMessage(), e);
-        } catch (Exception e) {
-            // 打印完整堆栈定位 NPE 源头
-            log.error("[MQTT] 连接异常 type={} msg={}", e.getClass().getSimpleName(), e.getMessage(), e);
+            log.error("[MQTT] ❌ 连接失败 reasonCode={} msg={}", e.getReasonCode(), e.getMessage());
+        } catch (Throwable t) {
+            // 兜底：任何 RuntimeException / Error 都打完整堆栈
+            log.error("[MQTT] ❌ 连接异常 type={} msg={}", t.getClass().getName(), t.getMessage(), t);
+        } finally {
+            connecting.set(false);
         }
     }
 
@@ -129,5 +127,9 @@ public class MqttConfig {
                 log.warn("[MQTT] 断开异常", e);
             }
         }
+    }
+
+    private static boolean blank(String s) {
+        return s == null || s.isEmpty();
     }
 }
