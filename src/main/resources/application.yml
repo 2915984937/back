@@ -28,7 +28,7 @@ app:
     secret: ${JWT_SECRET:study-room-dev-secret-change-me-please}
     expire-hours: ${JWT_EXPIRE_HOURS:168}   # token 有效期，默认 7 天
   mqtt:
-    broker-url: ${EMQX_BROKER_URL:tcp://f1e96469.ala.cn-hangzhou.emqxsl.cn:1883}
+    broker-url: ${EMQX_BROKER_URL:ssl://f1e96469.ala.cn-hangzhou.emqxsl.cn:8883}
     username:   ${EMQX_USERNAME:}
     password:   ${EMQX_PASSWORD:}
     client-id:  ${EMQX_CLIENT_ID:study-room-back-${random.uuid}}   # 带随机后缀，多实例不冲突
