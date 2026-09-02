@@ -25,6 +25,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         .addPathPatterns("/api/**")
         .excludePathPatterns(
             "/api/user/wx/login",     // 登录本身不需要 token
+            "/api/payment/wx/notify", // 微信支付回调（微信服务器调用，无 token）
             "/error",                 // Spring Boot 默认错误页
             "/static/**",             // 模板静态资源
             "/"                       // 首页（健康检查用）

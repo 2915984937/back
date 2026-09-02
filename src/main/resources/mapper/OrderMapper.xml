@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.booking.dao.OrderMapper">
+
+  <sql id="cols">
+    id,
+    order_no        AS orderNo,
+    user_id         AS userId,
+    store_id        AS storeId,
+    seat_id         AS seatId,
+    booking_start   AS bookingStart,
+    booking_end     AS bookingEnd,
+    duration_min    AS durationMin,
+    pay_amount      AS payAmount,
+    order_status    AS orderStatus,
+    cancel_reason   AS cancelReason,
+    expire_at       AS expireAt,
+    pay_time        AS payTime,
+    actual_start    AS actualStart,
+    actual_end      AS actualEnd,
+    create_time     AS createTime,
+    update_time     AS updateTime
+  </sql>
+
+  <insert id="insert" parameterType="com.tencent.wxcloudrun.booking.model.Order"
+          useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO biz_order(order_no, user_id, store_id, seat_id,
+                          booking_start, booking_end, duration_min, pay_amount, order_status, expire_at)
+    VALUES(#{orderNo}, #{userId}, #{storeId}, #{seatId},
+           #{bookingStart, jdbcType=TIMESTAMP}, #{bookingEnd, jdbcType=TIMESTAMP},
+           #{durationMin}, #{payAmount}, #{orderStatus}, #{expireAt, jdbcType=TIMESTAMP})
+  </insert>
+
+  <select id="selectById" resultType="com.tencent.wxcloudrun.booking.model.Order">
+    SELECT <include refid="cols"/>
+    FROM biz_order
+    WHERE id = #{id}
+  </select>
+
+  <select id="selectByOrderNo" resultType="com.tencent.wxcloudrun.booking.model.Order">
+    SELECT <include refid="cols"/>
+    FROM biz_order
+    WHERE order_no = #{orderNo}
+  </select>
+
+  <select id="selectByUser" resultType="com.tencent.wxcloudrun.booking.model.Order">
+    SELECT <include refid="cols"/>
+    FROM biz_order
+    WHERE user_id = #{userId}
+    ORDER BY create_time DESC
+    LIMIT 50
+  </select>
+
+  <select id="selectForUpdateByOrderNo" resultType="com.tencent.wxcloudrun.booking.model.Order">
+    SELECT <include refid="cols"/>
+    FROM biz_order
+    WHERE order_no = #{orderNo}
+    FOR UPDATE
+  </select>
+
+  <select id="selectSeatForUpdate" resultType="com.tencent.wxcloudrun.store.model.Seat">
+    SELECT id, seat_name AS seatName, store_id AS storeId, price_hour AS priceHour,
+           status, device_id AS deviceId, pos_x AS posX, pos_y AS posY,
+           create_time AS createTime, update_time AS updateTime
+    FROM biz_seat
+    WHERE id = #{seatId}
+    FOR UPDATE
+  </select>
+
+  <select id="existsOverlap" resultType="int">
+    SELECT COUNT(1)
+    FROM biz_order
+    WHERE seat_id = #{seatId}
+      AND order_status NOT IN (3, 4, 5)
+      AND booking_end &gt; #{start, jdbcType=TIMESTAMP}
+      AND booking_start &lt; #{end, jdbcType=TIMESTAMP}
+  </select>
+
+  <update id="updateStatusPaid">
+    UPDATE biz_order
+    SET order_status = 1, pay_time = #{payTime, jdbcType=TIMESTAMP}, update_time = NOW()
+    WHERE id = #{id}
+  </update>
+
+  <update id="updateStatusCancelled">
+    UPDATE biz_order
+    SET order_status = 4, cancel_reason = #{reason}, update_time = NOW()
+    WHERE id = #{id}
+  </update>
+
+  <update id="updateStatusRefunded">
+    UPDATE biz_order
+    SET order_status = 5, update_time = NOW()
+    WHERE id = #{id}
+  </update>
+
+  <update id="updateStatusInUse">
+    UPDATE biz_order
+    SET order_status = 2, actual_start = #{actualStart, jdbcType=TIMESTAMP}, update_time = NOW()
+    WHERE id = #{id}
+  </update>
+
+  <update id="updateStatusCompleted">
+    UPDATE biz_order
+    SET order_status = 3, actual_end = #{actualEnd, jdbcType=TIMESTAMP}, update_time = NOW()
+    WHERE id = #{id}
+  </update>
+
+  <select id="selectExpiredUnpaid" resultType="com.tencent.wxcloudrun.booking.model.Order">
+    SELECT <include refid="cols"/>
+    FROM biz_order
+    WHERE order_status = 0
+      AND expire_at &lt; #{now, jdbcType=TIMESTAMP}
+    ORDER BY expire_at ASC
+    LIMIT #{limit}
+  </select>
+
+</mapper>

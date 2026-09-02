@@ -24,6 +24,10 @@ app:
   wx:
     appid: ${WX_APPID:}            # 小程序 appid
     secret: ${WX_SECRET:}          # 小程序 secret（不建议入库，放环境变量）
+    pay:
+      mch-id: ${WX_PAY_MCH_ID:}          # 微信支付商户号
+      mch-key: ${WX_PAY_MCH_KEY:}        # 商户 API 密钥（签名用）
+      notify-url: ${WX_PAY_NOTIFY_URL:}  # 支付回调地址，如 https://<域名>/api/payment/wx/notify
   jwt:
     secret: ${JWT_SECRET:study-room-dev-secret-change-me-please}
     expire-hours: ${JWT_EXPIRE_HOURS:168}   # token 有效期，默认 7 天

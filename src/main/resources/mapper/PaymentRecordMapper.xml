@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tencent.wxcloudrun.payment.dao.PaymentRecordMapper">
+
+  <sql id="cols">
+    id,
+    order_id      AS orderId,
+    order_no      AS orderNo,
+    pay_no        AS payNo,
+    transaction_id AS transactionId,
+    amount,
+    pay_status    AS payStatus,
+    callback_data AS callbackData,
+    create_time   AS createTime,
+    update_time   AS updateTime
+  </sql>
+
+  <insert id="insert" parameterType="com.tencent.wxcloudrun.payment.model.PaymentRecord"
+          useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO biz_payment_record(order_id, order_no, pay_no, transaction_id, amount, pay_status, callback_data)
+    VALUES(#{orderId}, #{orderNo}, #{payNo}, #{transactionId}, #{amount}, #{payStatus}, #{callbackData})
+  </insert>
+
+  <select id="countByTransactionId" resultType="int">
+    SELECT COUNT(1)
+    FROM biz_payment_record
+    WHERE transaction_id = #{txn}
+  </select>
+
+</mapper>
