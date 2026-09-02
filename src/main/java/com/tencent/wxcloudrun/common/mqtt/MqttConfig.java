@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Configuration;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import java.util.UUID;
 
 /**
  * MQTT 配置类：创建 MqttClient、自动连接、打印连接事件日志。
@@ -36,16 +37,26 @@ public class MqttConfig {
 
     @Bean
     public MqttClient mqttClient() throws MqttException {
+        String brokerUrl = props.getBrokerUrl();
+        String clientId  = props.getClientId();
+
+        if (blank(brokerUrl)) {
+            throw new IllegalStateException("[MQTT] broker-url 未配置");
+        }
+        if (blank(clientId)) {
+            clientId = "study-room-" + UUID.randomUUID().toString().replace("-", "");
+        }
+
         MemoryPersistence persistence = new MemoryPersistence();
-        this.client = new MqttClient(props.getBrokerUrl(), props.getClientId(), persistence);
+        this.client = new MqttClient(brokerUrl, clientId, persistence);
 
         client.setCallback(new MqttCallbackExtended() {
             @Override public void connectComplete(boolean reconnect, String serverURI) {
                 log.info("[MQTT] {} broker={} clientId={}",
-                    reconnect ? "重连成功" : "首次连接成功", serverURI, props.getClientId());
+                    reconnect ? "重连成功" : "首次连接成功", serverURI, clientId);
             }
             @Override public void connectionLost(Throwable cause) {
-                log.warn("[MQTT] 连接断开 clientId={} cause={}", props.getClientId(),
+                log.warn("[MQTT] 连接断开 clientId={} cause={}", clientId,
                     cause != null ? cause.getMessage() : "unknown");
             }
             @Override public void messageArrived(String topic, org.eclipse.paho.client.mqttv3.MqttMessage message) {
@@ -72,6 +83,11 @@ public class MqttConfig {
     @PostConstruct
     public void connect() {
         try {
+            if (client == null) {
+                log.warn("[MQTT] MqttClient 未创建，跳过连接");
+                return;
+            }
+
             MqttConnectOptions opts = new MqttConnectOptions();
             String username = props.getUsername();
             String password = props.getPassword();
@@ -83,16 +99,23 @@ public class MqttConfig {
             opts.setAutomaticReconnect(props.isAutomaticReconnect());
             opts.setConnectionTimeout(props.getConnectTimeout());
             opts.setKeepAliveInterval(props.getKeepAlive());
-            opts.setSocketFactory(javax.net.ssl.SSLSocketFactory.getDefault());
+
+            // 重要：不要手动 setSocketFactory！
+            // Paho 对 ssl:// 协议内部有自己的 TLS 处理逻辑（SSLv3 兼容模式），
+            // 手动注入 SSLSocketFactory.getDefault() 在 Java 8 容器镜像中会触发
+            // "Unconnected sockets not implemented" 或 NPE（Paho 1.2.5 已知问题）。
+            // 删掉这一行即可让 Paho 自己正确处理 TLS。
 
             log.info("[MQTT] 开始连接 broker={} clientId={} auth={}",
                 props.getBrokerUrl(), props.getClientId(),
                 blank(username) ? "无" : "有(" + username + ")");
+
             client.connect(opts);
         } catch (MqttException e) {
             log.error("[MQTT] 连接失败 reasonCode={} msg={}", e.getReasonCode(), e.getMessage(), e);
         } catch (Exception e) {
-            log.error("[MQTT] 连接异常", e);
+            // 打印完整堆栈定位 NPE 源头
+            log.error("[MQTT] 连接异常 type={} msg={}", e.getClass().getSimpleName(), e.getMessage(), e);
         }
     }
 
