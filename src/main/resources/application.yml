@@ -27,6 +27,17 @@ app:
   jwt:
     secret: ${JWT_SECRET:study-room-dev-secret-change-me-please}
     expire-hours: ${JWT_EXPIRE_HOURS:168}   # token 有效期，默认 7 天
+  mqtt:
+    broker-url: ${EMQX_BROKER_URL:ssl://f1e96469.ala.cn-hangzhou.emqxsl.cn:8883}
+    username:   ${EMQX_USERNAME:}
+    password:   ${EMQX_PASSWORD:}
+    client-id:  ${EMQX_CLIENT_ID:study-room-back-${random.uuid}}   # 带随机后缀，多实例不冲突
+    topic-prefix: ${EMQX_TOPIC_PREFIX:study-room}   # 所有主题前面加这个前缀
+    connect-timeout: 10    # 连接超时秒
+    keep-alive: 60          # 心跳秒
+    automatic-reconnect: true
+    clean-session: true
+    enabled: ${EMQX_ENABLED:true}   # 本地调试想禁用设 false
 
 # 日志
 logging:
