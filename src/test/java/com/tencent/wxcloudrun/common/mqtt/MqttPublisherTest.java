@@ -17,6 +17,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
+/**
+ * 用 doReturn...when / doThrow...when 避免 MqttClient.publish 多重载导致编译器类型推断失败。
+ */
 @ExtendWith(MockitoExtension.class)
 class MqttPublisherTest {
 
@@ -38,7 +41,7 @@ class MqttPublisherTest {
     void publish_success() throws Exception {
         when(mqttClient.isConnected()).thenReturn(true);
         IMqttDeliveryToken token = mock(IMqttDeliveryToken.class);
-        when(mqttClient.publish(anyString(), any(MqttMessage.class))).thenReturn(token);
+        doReturn(token).when(mqttClient).publish(anyString(), any(MqttMessage.class));
 
         boolean ok = publisher.publish("device/dev-001/cmd", "{\"on\":true}");
 
@@ -48,7 +51,7 @@ class MqttPublisherTest {
         verify(mqttClient).publish(topicCaptor.capture(), msgCaptor.capture());
         assertEquals("study-room/device/dev-001/cmd", topicCaptor.getValue());
         assertEquals("{\"on\":true}", new String(msgCaptor.getValue().getPayload(), "UTF-8"));
-        assertEquals(0, msgCaptor.getValue().getQos()); // 默认 QoS 0
+        assertEquals(0, msgCaptor.getValue().getQos());
     }
 
     @Test
@@ -56,7 +59,7 @@ class MqttPublisherTest {
     void publish_withQos() throws Exception {
         when(mqttClient.isConnected()).thenReturn(true);
         IMqttDeliveryToken token = mock(IMqttDeliveryToken.class);
-        when(mqttClient.publish(anyString(), any(MqttMessage.class))).thenReturn(token);
+        doReturn(token).when(mqttClient).publish(anyString(), any(MqttMessage.class));
 
         publisher.publish("test", "hi", 1);
 
@@ -70,7 +73,7 @@ class MqttPublisherTest {
     void publish_invalidQos() throws Exception {
         when(mqttClient.isConnected()).thenReturn(true);
         IMqttDeliveryToken token = mock(IMqttDeliveryToken.class);
-        when(mqttClient.publish(anyString(), any(MqttMessage.class))).thenReturn(token);
+        doReturn(token).when(mqttClient).publish(anyString(), any(MqttMessage.class));
 
         publisher.publish("t", "p", 99);
 
@@ -94,8 +97,8 @@ class MqttPublisherTest {
     @DisplayName("mqttClient.publish 抛 MqttException → 返回 false")
     void publish_mqttException() throws Exception {
         when(mqttClient.isConnected()).thenReturn(true);
-        when(mqttClient.publish(anyString(), any(MqttMessage.class)))
-            .thenThrow(new MqttException(MqttException.REASON_CODE_SERVER_CONNECT_ERROR));
+        doThrow(new MqttException(MqttException.REASON_CODE_SERVER_CONNECT_ERROR))
+            .when(mqttClient).publish(anyString(), any(MqttMessage.class));
 
         boolean ok = publisher.publish("t", "p");
 
@@ -115,7 +118,7 @@ class MqttPublisherTest {
     void publish_emptyPayload() throws Exception {
         when(mqttClient.isConnected()).thenReturn(true);
         IMqttDeliveryToken token = mock(IMqttDeliveryToken.class);
-        when(mqttClient.publish(anyString(), any(MqttMessage.class))).thenReturn(token);
+        doReturn(token).when(mqttClient).publish(anyString(), any(MqttMessage.class));
 
         boolean ok = publisher.publish("t", "");
 
